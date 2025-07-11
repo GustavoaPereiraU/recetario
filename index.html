@@ -1,143 +1,170 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Recetario By GuzzBarman</title>
-
-  <!-- Fuentes -->
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
-
-  <!-- Hoja de estilos -->
-  <link rel="stylesheet" href="styles.css"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recetario de Cócteles</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-  <!-- Encabezado -->
-  <header>
-    <h1>Recetario By GuzzBarman</h1>
-    <p>Colección privada de cócteles y mocktails</p>
-  </header>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo" id="headerTitle">Recetario de Cócteles</div>
+            <div class="auth-section">
+                <div id="authButtons">
+                    <button class="btn" onclick="openLoginModal()">Iniciar Sesión</button>
+                </div>
+                <div id="userSection" style="display: none;">
+                    <span class="user-info" id="userInfo"></span>
+                    <button class="btn btn-secondary" onclick="logout()">Cerrar Sesión</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-  <!-- Controles de autenticación -->
-  <div id="authControls" style="text-align: center; margin-top: 1rem;">
-    <form id="authForm">
-      <input type="email" id="emailInput" placeholder="Correo" required />
-      <input type="password" id="passwordInput" placeholder="Contraseña" required />
-      <input type="text" id="recetarioNombre" placeholder="Nombre del recetario" style="display:none;" />
-      <button type="button" id="registerBtn" style="display: none;">Registrarse</button>
-      <button type="submit" id="loginEmailBtn">Iniciar Sesión</button>
-    </form>
-    <button id="logoutBtn" style="display:none;">Cerrar sesión</button>
-    <span id="userName" style="margin-left: 1rem;"></span>
-  </div>
+    <div class="container">
+        <div class="search-container">
+            <input type="text" class="search-bar" placeholder="Buscar cócteles..." id="searchInput">
+        </div>
 
-  <!-- Botón flotante y modal -->
-  <button id="fab" aria-label="Añadir receta" style="display: none;">+</button>
-  <div id="formModal" class="modal">
-    <form id="addCocktailForm">
-      <h2>Nueva Receta</h2>
+        <div id="addRecipeSection" style="display: none; text-align: center; margin-bottom: 30px;">
+            <button class="btn" onclick="openRecipeModal()">Agregar Nueva Receta</button>
+        </div>
 
-      <label>Nombre
-        <input type="text" name="name" required>
-      </label>
+        <div id="adminSection" style="display: none;">
+            <div class="admin-section">
+                <h4>Panel de Administrador</h4>
+                <button class="btn" onclick="openUserModal()">Registrar Nuevo Usuario</button>
+                <button class="btn" onclick="crearRecetasEjemplo()">Cargar Recetas Públicas de Ejemplo</button>
+            </div>
+        </div>
 
-      <label>Categoría
-        <select name="category" required>
-          <option>Gin and Tonic</option>
-          <option>Autor</option>
-          <option>Spritz</option>
-          <option>Clásicos</option>
-          <option>Mocktails</option>
-          <option>Jugos y Limonadas</option>
-        </select>
-      </label>
+        <div class="recipe-grid" id="recipeGrid">
+            <div class="no-recipes">
+                <h3>¡Bienvenido!</h3>
+                <p>Inicia sesión para comenzar a agregar recetas a tu recetario personal.</p>
+            </div>
+        </div>
+    </div>
 
-      <label>Imagen
-        <input type="file" name="imageFile" accept="image/*" required>
-      </label>
-      <progress id="uploadProgress" value="0" max="100" style="width:100%; display:none;"></progress>
+    <!-- Login Modal -->
+    <div class="modal" id="loginModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Iniciar Sesión</h3>
+                <button class="close-btn" onclick="closeModal('loginModal')">&times;</button>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Nombre de Usuario</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Iniciar Sesión</button>
+            </form>
+        </div>
+    </div>
 
-      <label>Ingredientes (uno por línea)
-        <textarea name="ingredients" rows="3" required></textarea>
-      </label>
+    <!-- Recipe Modal -->
+    <div class="modal" id="recipeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Agregar Nueva Receta</h3>
+                <button class="close-btn" onclick="closeModal('recipeModal')">&times;</button>
+            </div>
+            <form id="recipeForm">
+                <div class="form-group">
+                    <label for="recipeName">Nombre del Cóctel</label>
+                    <input type="text" id="recipeName" required>
+                </div>
+                <div class="form-group">
+                    <label for="recipeImage">Imagen</label>
+                    <input type="file" id="recipeImage" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label for="recipeIngredients">Ingredientes (uno por línea)</label>
+                    <textarea id="recipeIngredients" required placeholder="Ej: 60ml Gin&#10;30ml Jugo de limón&#10;15ml Jarabe simple"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="recipeGlass">Vaso</label>
+                    <input type="text" id="recipeGlass" required placeholder="Ej: Copa Martini">
+                </div>
+                <div class="form-group">
+                    <label for="recipeIce">Hielo</label>
+                    <input type="text" id="recipeIce" required placeholder="Ej: Con hielo / Sin hielo">
+                </div>
+                <div class="form-group">
+                    <label for="recipeMethod">Método</label>
+                    <textarea id="recipeMethod" required placeholder="Describe el método de preparación"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="recipeGarnish">Decoración</label>
+                    <input type="text" id="recipeGarnish" required placeholder="Ej: Twist de limón">
+                </div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="recipePublic">
+                        <label for="recipePublic">Hacer receta pública</label>
+                    </div>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Guardar Receta</button>
+            </form>
+        </div>
+    </div>
 
-      <label>Vaso
-        <input type="text" name="glass" required>
-      </label>
+    <!-- User Registration Modal -->
+    <div class="modal" id="userModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Registrar Nuevo Usuario</h3>
+                <button class="close-btn" onclick="closeModal('userModal')">&times;</button>
+            </div>
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="newUsername">Nombre de Usuario</label>
+                    <input type="text" id="newUsername" required>
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">Contraseña</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                <div class="form-group">
+                    <label for="recipeName">Nombre del Recetario</label>
+                    <input type="text" id="recipeBookName" required placeholder="Ej: Recetario de Eclipse Bar">
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Registrar Usuario</button>
+            </form>
+        </div>
+    </div>
 
-      <label>Hielo
-        <input type="text" name="ice" required>
-      </label>
+    <!-- Firebase SDKs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-storage-compat.min.js"></script>
 
-      <label>Método
-        <textarea name="method" rows="2" required></textarea>
-      </label>
-
-      <label>Decoración
-        <input type="text" name="garnish" required>
-      </label>
-
-      <div class="form-actions">
-        <button type="submit">Guardar</button>
-        <button type="button" id="cancelBtn">Cancelar</button>
-      </div>
-    </form>
-  </div>
-
-  <!-- Modal admin para registrar nuevo usuario -->
-  <div id="adminRegisterModal" class="modal">
-    <form id="adminRegisterForm">
-      <h2>Registrar nuevo usuario</h2>
-      <label>Email <input type="email" id="newUserEmail" required></label>
-      <label>Contraseña <input type="password" id="newUserPassword" required></label>
-      <label>Nombre del recetario <input type="text" id="newUserNombre" required></label>
-      <div class="form-actions">
-        <button type="submit">Registrar</button>
-        <button type="button" id="closeAdminRegister">Cancelar</button>
-      </div>
-    </form>
-  </div>
-
-  <!-- Barra de búsqueda -->
-  <section class="search-bar">
-    <input type="text" id="searchInput" placeholder="Buscar cóctel..." oninput="filterCocktails()" />
-  </section>
-
-  <!-- Contenedor dinámico de cócteles -->
-  <main id="cocktailContainer"></main>
-
-  <!-- Footer -->
-  <footer>
-    &copy; <span id="year"></span> Guzz dev. Todos los derechos reservados.
-  </footer>
-
-  <!-- Firebase SDK y config global -->
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
-    import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js';
-    import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-storage.js';
-    import { getAuth, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js';
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyB1SbTl657Q-Bxj0qvbD-3URRT8e3jx4y8",
-      authDomain: "inventarios-app-5a576.firebaseapp.com",
-      projectId: "inventarios-app-5a576",
-      storageBucket: "inventarios-app-5a576.appspot.com",
-      messagingSenderId: "1023987815156",
-      appId: "1:1023987815156:web:ce94c3205e76de244c84a1",
-      measurementId: "G-ZT83T39K70"
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+        apiKey: "AIzaSyDlnS541JFJXfBswPP1XYDl2PioDlgf1dA",
+        authDomain: "recetario-app-9d9fd.firebaseapp.com",
+        projectId: "recetario-app-9d9fd",
+        storageBucket: "recetario-app-9d9fd.firebasestorage.app",
+        messagingSenderId: "582565423701",
+        appId: "1:582565423701:web:a44abe72789ec56de382dc",
+        measurementId: "G-MLN8THF1TQ"
     };
 
-    const app = initializeApp(firebaseConfig);
-    window.db = getFirestore(app);
-    window.storage = getStorage(app);
-    window.auth = getAuth(app);
-    window.provider = new GoogleAuthProvider();
-    window.firebaseConfig = firebaseConfig;
-  </script>
-
-  <!-- Script principal -->
-  <script type="module" src="app.js"></script>
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const storage = firebase.storage();
+    </script>
+    <script src="app.js"></script>
 </body>
 </html>

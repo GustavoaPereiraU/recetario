@@ -1,287 +1,320 @@
-// ==============================================================
-// Recetario By GuzzBarman – Admin Auth Edition (Corregido)
-// ==============================================================
+// ==============================
+// APP DE RECETARIO DE CÓCTELES
+// ==============================
 
-import {
-  collection,
-  addDoc,
-  onSnapshot,
-  getDoc,
-  doc,
-  serverTimestamp,
-  query,
-  where
-} from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js';
-
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL
-} from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-storage.js';
-
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut
-} from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js';
-
-import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
-
-const db = window.db;
-const storage = window.storage;
-const auth = window.auth;
+// Variables globales
 let currentUser = null;
-let allCocktails = [];
-let debounceTimer;
+let allRecipes = [];
 
-const ADMIN_EMAIL = "admin@admin.com";
-
-// ===== DOM elements =====
-const emailInput = document.getElementById('emailInput');
-const passwordInput = document.getElementById('passwordInput');
-const authForm = document.getElementById('authForm');
-const loginEmailBtn = document.getElementById('loginEmailBtn');
-const registerBtn = document.getElementById('registerBtn');
-const logoutBtn = document.getElementById('logoutBtn');
-const userName = document.getElementById('userName');
-const recetarioNombre = document.getElementById('recetarioNombre');
-const yearSpan = document.getElementById('year');
-if (yearSpan) yearSpan.textContent = new Date().getFullYear();
-
-// ===== Eventos de login/registro =====
-authForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const email = emailInput.value.trim();
-  const password = passwordInput.value.trim();
-
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    currentUser = result.user;
-    window.currentUser = currentUser;
-    authForm.reset();
-  } catch (err) {
-    alert('Usuario o contraseña incorrectos.');
-    console.error(err);
-  }
-});
-
-registerBtn.addEventListener('click', async () => {
-  const email = emailInput.value.trim();
-  const password = passwordInput.value.trim();
-  const nombre = recetarioNombre.value.trim();
-
-  try {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    currentUser = result.user;
-
-    await addDoc(collection(db, 'users'), {
-      uid: currentUser.uid,
-      email,
-      nombre
-    });
-
-    authForm.reset();
-  } catch (err) {
-    alert('Error al registrar usuario. ¿Ya existe?');
-    console.error(err);
-  }
-});
-
-logoutBtn.addEventListener('click', async () => {
-  await signOut(auth);
-  currentUser = null;
-});
-
-// ===== Control de sesión =====
-onAuthStateChanged(auth, async user => {
-  currentUser = user;
-
-  if (user) {
-    try {
-      const perfilDoc = await getDoc(doc(db, 'users', user.uid));
-      if (perfilDoc.exists()) {
-        const perfil = perfilDoc.data();
-        document.querySelector("header h1").textContent = `Recetario de ${perfil.nombre}`;
-      } else {
-        const emailName = user.email.split("@")[0];
-        document.querySelector("header h1").textContent = `Recetario de ${emailName}`;
-      }
-    } catch (err) {
-      console.error('Error obteniendo perfil:', err);
-    }
-
-    authForm.style.display = 'none';
-    logoutBtn.style.display = 'inline-block';
-    userName.textContent = `👤 ${user.email}`;
-
-    const fab = document.getElementById('fab');
-    if (fab) fab.style.display = 'block';
-    const modal = document.getElementById('formModal');
-    const cancel = document.getElementById('cancelBtn');
-
-    if (fab && modal && cancel) {
-      fab.addEventListener('click', () => modal.classList.add('show'));
-      cancel.addEventListener('click', () => modal.classList.remove('show'));
-      window.addEventListener('click', e => {
-        if (e.target === modal) modal.classList.remove('show');
-      });
-    }
-
-    const adminBtn = document.getElementById('openAdminRegister');
-    if (user.email === ADMIN_EMAIL) {
-      registerBtn.style.display = 'inline-block';
-      recetarioNombre.style.display = 'inline-block';
-      if (adminBtn) adminBtn.style.display = 'inline-block';
-    } else {
-      registerBtn.style.display = 'none';
-      recetarioNombre.style.display = 'none';
-      if (adminBtn) adminBtn.style.display = 'none';
-    }
-
-    const cocktailsQuery = query(
-      collection(db, 'cocktails'),
-      where('uid', '==', user.uid)
-    );
-
-    onSnapshot(cocktailsQuery, snap => {
-      allCocktails = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      displayCocktails();
-    });
-  } else {
-    allCocktails = [];
-    displayCocktails();
-    userName.textContent = '';
-    const fab = document.getElementById('fab');
-    if (fab) fab.style.display = 'none';
-    authForm.style.display = 'flex';
-    logoutBtn.style.display = 'none';
-    registerBtn.style.display = 'none';
-    recetarioNombre.style.display = 'none';
-    const adminBtn = document.getElementById('openAdminRegister');
-    if (adminBtn) adminBtn.style.display = 'none';
-  }
-});
-
-// ===== Envío de nueva receta =====
+// Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
-  const form = document.getElementById('addCocktailForm');
-  if (!form) return console.warn("Formulario de cóctel no encontrado");
-
-  form.addEventListener('submit', async e => {
-    e.preventDefault();
-    if (!currentUser) return alert("Debes iniciar sesión para agregar una receta");
-
-    console.log("🔄 Enviando receta...");
-
-    const fd = new FormData(form);
-    const file = fd.get('imageFile');
-
-    if (!file || !file.type.startsWith('image/')) {
-      return alert('Por favor selecciona una imagen válida');
-    }
-
-    const storageRef = ref(storage, `cocktails/${Date.now()}_${file.name}`);
-    const progressBar = document.getElementById('uploadProgress');
-    progressBar.style.display = 'block';
-    progressBar.value = 0;
-
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    uploadTask.on(
-      'state_changed',
-      snap => {
-        const percent = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
-        progressBar.value = percent;
-      },
-      err => {
-        console.error('Error subiendo imagen:', err);
-        alert('Error al subir imagen');
-      },
-      async () => {
-        const url = await getDownloadURL(uploadTask.snapshot.ref);
-        progressBar.style.display = 'none';
-
-        try {
-          await addDoc(collection(db, 'cocktails'), {
-            uid: currentUser.uid,
-            name: fd.get('name'),
-            category: fd.get('category'),
-            image: url,
-            recipe: {
-              ingredients: fd.get('ingredients').split('\n').filter(Boolean),
-              glass: fd.get('glass'),
-              ice: fd.get('ice'),
-              method: fd.get('method'),
-              garnish: fd.get('garnish')
-            },
-            createdAt: serverTimestamp()
-          });
-
-          console.log("✅ Receta guardada con éxito");
-          form.reset();
-          document.getElementById('formModal').classList.remove('show');
-        } catch (error) {
-          console.error("🧨 Error guardando en Firestore:", error);
-          alert("Error al guardar la receta");
-        }
-      }
-    );
-  });
+    setupEventListeners();
+    loadRecipes();
 });
 
-// ===== Mostrar recetas =====
-function displayCocktails(filter = '') {
-  const container = document.getElementById('cocktailContainer');
-  container.innerHTML = '';
+/**
+ * Asigna listeners a formularios, búsqueda y clics fuera de modales
+ */
+function setupEventListeners() {
+    document.getElementById('loginForm').addEventListener('submit', handleLogin);
+    document.getElementById('recipeForm').addEventListener('submit', handleRecipeSubmit);
+    document.getElementById('userForm').addEventListener('submit', handleUserRegistration);
+    document.getElementById('searchInput').addEventListener('input', filterRecipes);
 
-  const categories = [...new Set(allCocktails.map(c => c.category))].sort();
-
-  categories.forEach(cat => {
-    const items = allCocktails
-      .filter(c =>
-        c.category === cat &&
-        c.name.toLowerCase().includes(filter.toLowerCase())
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    if (!items.length) return;
-
-    const section = document.createElement('section');
-    section.className = 'category';
-    section.innerHTML = `<h2>${cat}</h2><div class="cocktail-list"></div>`;
-    items.forEach(c => section.querySelector('.cocktail-list').appendChild(createCard(c)));
-    container.appendChild(section);
-  });
+    // Cierra modal al hacer clic fuera del contenido
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal(modal.id);
+        });
+    });
 }
 
-function createCard(c) {
-  const card = document.createElement('div');
-  card.className = 'cocktail-card';
-  card.innerHTML = `
-    <img src="${c.image}" alt="${c.name}">
-    <div class="cocktail-content">
-      <h3>${c.name}</h3>
-      <div class="cocktail-recipe">
-        <h4>Receta</h4>
-        <ul>${c.recipe.ingredients.map(i => `<li>${i}</li>`).join('')}</ul>
-        <p><strong>Vaso:</strong> ${c.recipe.glass}</p>
-        <p><strong>Hielo:</strong> ${c.recipe.ice}</p>
-        <p><strong>Método:</strong> ${c.recipe.method}</p>
-        <p><strong>Decoración:</strong> ${c.recipe.garnish}</p>
-      </div>
-    </div>
-  `;
-  card.addEventListener('click', () => card.classList.toggle('active'));
-  return card;
+/**
+ * Inicia sesión con usuario de Firebase Firestore
+ */
+async function handleLogin(e) {
+    e.preventDefault();
+
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+
+    try {
+        const userDoc = await db.collection('users').doc(username).get();
+        if (!userDoc.exists) return alert('Usuario no encontrado');
+
+        const userData = userDoc.data();
+        if (userData.password !== password) return alert('Contraseña incorrecta');
+
+        currentUser = {
+            uid: username,
+            username,
+            recipeName: userData.recipeName,
+            isAdmin: username === 'admin'
+        };
+
+        updateUI();
+        closeModal('loginModal');
+        loadRecipes();
+    } catch (err) {
+        console.error('Error al iniciar sesión:', err);
+        alert('Error al iniciar sesión');
+    }
 }
 
-function filterCocktails() {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    displayCocktails(document.getElementById('searchInput').value.trim());
-  }, 300);
+/**
+ * Registrar usuario (solo administrador)
+ */
+async function handleUserRegistration(e) {
+    e.preventDefault();
+    if (!currentUser?.isAdmin) return alert('Solo el administrador puede registrar usuarios');
+
+    const username = document.getElementById('newUsername').value.trim();
+    const password = document.getElementById('newPassword').value;
+    const recipeName = document.getElementById('recipeBookName').value;
+
+    try {
+        const userDoc = await db.collection('users').doc(username).get();
+        if (userDoc.exists) return alert('El nombre de usuario ya existe');
+
+        await db.collection('users').doc(username).set({
+            password,
+            recipeName,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert('Usuario registrado exitosamente');
+        closeModal('userModal');
+        document.getElementById('userForm').reset();
+    } catch (err) {
+        console.error('Error al registrar usuario:', err);
+        alert('Error al registrar usuario');
+    }
 }
 
-window.filterCocktails = filterCocktails;
+/**
+ * Cierra sesión
+ */
+function logout() {
+    currentUser = null;
+    updateUI();
+    loadRecipes();
+}
+
+/**
+ * Actualiza la interfaz según el usuario actual
+ */
+function updateUI() {
+    const authButtons = document.getElementById('authButtons');
+    const userSection = document.getElementById('userSection');
+    const userInfo = document.getElementById('userInfo');
+    const headerTitle = document.getElementById('headerTitle');
+    const addRecipeSection = document.getElementById('addRecipeSection');
+    const adminSection = document.getElementById('adminSection');
+
+    if (currentUser) {
+        authButtons.style.display = 'none';
+        userSection.style.display = 'flex';
+        userInfo.textContent = `Bienvenido, ${currentUser.username}`;
+        headerTitle.textContent = currentUser.recipeName;
+        addRecipeSection.style.display = 'block';
+        adminSection.style.display = currentUser.isAdmin ? 'block' : 'none';
+    } else {
+        authButtons.style.display = 'block';
+        userSection.style.display = 'none';
+        headerTitle.textContent = 'Recetario de Cócteles';
+        addRecipeSection.style.display = 'none';
+        adminSection.style.display = 'none';
+    }
+}
+
+/**
+ * Agrega una receta nueva
+ */
+async function handleRecipeSubmit(e) {
+    e.preventDefault();
+    if (!currentUser) return alert('Debes iniciar sesión para agregar recetas');
+
+    const name = document.getElementById('recipeName').value;
+    const imageFile = document.getElementById('recipeImage').files[0];
+    const ingredients = document.getElementById('recipeIngredients').value.split('\n').filter(i => i.trim());
+    const glass = document.getElementById('recipeGlass').value;
+    const ice = document.getElementById('recipeIce').value;
+    const method = document.getElementById('recipeMethod').value;
+    const garnish = document.getElementById('recipeGarnish').value;
+    const isPublic = document.getElementById('recipePublic').checked;
+
+    try {
+        let imageUrl = '';
+        if (imageFile) {
+            const imageRef = storage.ref(`recipes/${Date.now()}_${imageFile.name}`);
+            const uploadTask = await imageRef.put(imageFile);
+            imageUrl = await uploadTask.ref.getDownloadURL();
+        }
+
+        await db.collection('cocktails').add({
+            name,
+            image: imageUrl,
+            ingredients,
+            glass,
+            ice,
+            method,
+            garnish,
+            public: isPublic && currentUser.isAdmin,
+            uid: currentUser.isAdmin && isPublic ? 'public' : currentUser.uid,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert('Receta guardada exitosamente');
+        closeModal('recipeModal');
+        document.getElementById('recipeForm').reset();
+        loadRecipes();
+    } catch (err) {
+        console.error('Error al guardar receta:', err);
+        alert('Error al guardar receta');
+    }
+}
+
+/**
+ * Cargar recetas (públicas o del usuario)
+ */
+async function loadRecipes() {
+    try {
+        let query = db.collection('cocktails');
+        if (currentUser) {
+            query = query.where('uid', 'in', [currentUser.uid, 'public']);
+        } else {
+            query = query.where('public', '==', true);
+        }
+
+        const snapshot = await query.get();
+        allRecipes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        displayRecipes(allRecipes);
+    } catch (err) {
+        console.error('Error al cargar recetas:', err);
+    }
+}
+
+/**
+ * Muestra las recetas en el grid
+ */
+function displayRecipes(recipes) {
+    const recipeGrid = document.getElementById('recipeGrid');
+    if (recipes.length === 0) {
+        recipeGrid.innerHTML = `
+            <div class="no-recipes">
+                <h3>No hay recetas disponibles</h3>
+                <p>${currentUser ? 'Agrega tu primera receta para comenzar.' : 'Inicia sesión para ver recetas.'}</p>
+            </div>`;
+        return;
+    }
+
+    recipeGrid.innerHTML = recipes.map(recipe => `
+        <div class="recipe-card" onclick="toggleRecipeDetails('${recipe.id}')">
+            <img src="${recipe.image || 'https://via.placeholder.com/350x200/333/fff?text=Sin+Imagen'}" alt="${recipe.name}" class="recipe-image">
+            <div class="recipe-info">
+                <h3 class="recipe-title">${recipe.name}</h3>
+                <p class="recipe-preview">Vaso: ${recipe.glass} | Hielo: ${recipe.ice}</p>
+            </div>
+            <div class="recipe-details" id="details-${recipe.id}">
+                <div class="recipe-section">
+                    <h4>Ingredientes</h4>
+                    <ul>${recipe.ingredients.map(ing => `<li>${ing}</li>`).join('')}</ul>
+                </div>
+                <div class="recipe-section"><h4>Método</h4><p>${recipe.method}</p></div>
+                <div class="recipe-section"><h4>Decoración</h4><p>${recipe.garnish}</p></div>
+            </div>
+        </div>`).join('');
+}
+
+// Alternar detalles
+function toggleRecipeDetails(recipeId) {
+    document.getElementById(`details-${recipeId}`).classList.toggle('active');
+}
+
+// Filtrar por búsqueda
+function filterRecipes() {
+    const term = document.getElementById('searchInput').value.toLowerCase();
+    const filtered = allRecipes.filter(r => r.name.toLowerCase().includes(term));
+    displayRecipes(filtered);
+}
+
+// Modales
+function openLoginModal() { document.getElementById('loginModal').classList.add('active'); }
+function openRecipeModal() { document.getElementById('recipeModal').classList.add('active'); }
+function openUserModal() { document.getElementById('userModal').classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+/**
+ * Crea 5 recetas públicas de ejemplo (solo el admin puede usarlo)
+ */
+async function crearRecetasEjemplo() {
+    if (!currentUser?.isAdmin) {
+        alert('Solo el administrador puede cargar recetas públicas');
+        return;
+    }
+
+    const recetas = [
+        {
+            name: 'Mojito Clásico',
+            ingredients: ['60ml Ron Blanco', '30ml Jugo de lima', 'Hierbabuena', '2 cucharaditas de azúcar', 'Agua con gas'],
+            glass: 'Vaso largo',
+            ice: 'Con hielo picado',
+            method: 'Macerar hierbabuena con azúcar y lima, añadir ron, hielo y completar con agua con gas.',
+            garnish: 'Rama de hierbabuena',
+        },
+        {
+            name: 'Negroni',
+            ingredients: ['30ml Gin', '30ml Vermut rojo', '30ml Campari'],
+            glass: 'Old Fashioned',
+            ice: 'Con hielo en cubos',
+            method: 'Remover todos los ingredientes con hielo y servir.',
+            garnish: 'Twist de naranja',
+        },
+        {
+            name: 'Piña Colada',
+            ingredients: ['60ml Ron blanco', '90ml Jugo de piña', '30ml Crema de coco'],
+            glass: 'Copa Huracán',
+            ice: 'Con hielo triturado',
+            method: 'Licuar todos los ingredientes con hielo.',
+            garnish: 'Rodaja de piña y cereza',
+        },
+        {
+            name: 'Cosmopolitan',
+            ingredients: ['45ml Vodka', '15ml Triple Sec', '15ml Jugo de lima', '30ml Jugo de arándano'],
+            glass: 'Copa cocktail',
+            ice: 'Sin hielo',
+            method: 'Agitar con hielo y colar.',
+            garnish: 'Twist de lima',
+        },
+        {
+            name: 'Whiskey Sour',
+            ingredients: ['60ml Bourbon', '30ml Jugo de limón', '15ml Jarabe simple', '1 clara de huevo (opcional)'],
+            glass: 'Old Fashioned',
+            ice: 'Con hielo en cubos',
+            method: 'Agitar en seco, luego con hielo y colar.',
+            garnish: 'Rodaja de limón o cereza',
+        }
+    ];
+
+    try {
+        const batch = db.batch();
+
+        recetas.forEach(receta => {
+            const docRef = db.collection('cocktails').doc();
+            batch.set(docRef, {
+                ...receta,
+                image: '', // Puedes poner una URL real si lo deseas
+                public: true,
+                uid: 'public',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        });
+
+        await batch.commit();
+        alert('Recetas públicas creadas exitosamente.');
+        loadRecipes();
+    } catch (err) {
+        console.error('Error al crear recetas públicas:', err);
+        alert('Hubo un error al cargar las recetas.');
+    }
+}
