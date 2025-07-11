@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recetario By GuzzBarman</title>
+
+  <!-- Fuentes -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <!-- Hoja de estilos -->
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+
+<body>
+  <!-- Encabezado -->
+  <header>
+    <h1>Recetario By GuzzBarman</h1>
+    <p>Colección privada de cócteles y mocktails</p>
+  </header>
+
+  <!-- Controles de autenticación -->
+  <div id="authControls" style="text-align: center; margin-top: 1rem;">
+    <form id="authForm">
+      <input type="email" id="emailInput" placeholder="Correo" required />
+      <input type="password" id="passwordInput" placeholder="Contraseña" required />
+      <input type="text" id="recetarioNombre" placeholder="Nombre del recetario" style="display:none;" />
+      <button type="button" id="registerBtn" style="display: none;">Registrarse</button>
+      <button type="submit" id="loginEmailBtn">Iniciar Sesión</button>
+    </form>
+    <button id="logoutBtn" style="display:none;">Cerrar sesión</button>
+    <span id="userName" style="margin-left: 1rem;"></span>
+  </div>
+
+  <!-- Botón flotante y modal -->
+  <button id="fab" aria-label="Añadir receta" style="display: none;">+</button>
+  <div id="formModal" class="modal">
+    <form id="addCocktailForm">
+      <h2>Nueva Receta</h2>
+
+      <label>Nombre
+        <input type="text" name="name" required>
+      </label>
+
+      <label>Categoría
+        <select name="category" required>
+          <option>Gin and Tonic</option>
+          <option>Autor</option>
+          <option>Spritz</option>
+          <option>Clásicos</option>
+          <option>Mocktails</option>
+          <option>Jugos y Limonadas</option>
+        </select>
+      </label>
+
+      <label>Imagen
+        <input type="file" name="imageFile" accept="image/*" required>
+      </label>
+      <progress id="uploadProgress" value="0" max="100" style="width:100%; display:none;"></progress>
+
+      <label>Ingredientes (uno por línea)
+        <textarea name="ingredients" rows="3" required></textarea>
+      </label>
+
+      <label>Vaso
+        <input type="text" name="glass" required>
+      </label>
+
+      <label>Hielo
+        <input type="text" name="ice" required>
+      </label>
+
+      <label>Método
+        <textarea name="method" rows="2" required></textarea>
+      </label>
+
+      <label>Decoración
+        <input type="text" name="garnish" required>
+      </label>
+
+      <div class="form-actions">
+        <button type="submit">Guardar</button>
+        <button type="button" id="cancelBtn">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal admin para registrar nuevo usuario -->
+  <div id="adminRegisterModal" class="modal">
+    <form id="adminRegisterForm">
+      <h2>Registrar nuevo usuario</h2>
+      <label>Email <input type="email" id="newUserEmail" required></label>
+      <label>Contraseña <input type="password" id="newUserPassword" required></label>
+      <label>Nombre del recetario <input type="text" id="newUserNombre" required></label>
+      <div class="form-actions">
+        <button type="submit">Registrar</button>
+        <button type="button" id="closeAdminRegister">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Barra de búsqueda -->
+  <section class="search-bar">
+    <input type="text" id="searchInput" placeholder="Buscar cóctel..." oninput="filterCocktails()" />
+  </section>
+
+  <!-- Contenedor dinámico de cócteles -->
+  <main id="cocktailContainer"></main>
+
+  <!-- Footer -->
+  <footer>
+    &copy; <span id="year"></span> Guzz dev. Todos los derechos reservados.
+  </footer>
+
+  <!-- Firebase SDK y config global -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js';
+    import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js';
+    import { getStorage } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-storage.js';
+    import { getAuth, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB1SbTl657Q-Bxj0qvbD-3URRT8e3jx4y8",
+      authDomain: "inventarios-app-5a576.firebaseapp.com",
+      projectId: "inventarios-app-5a576",
+      storageBucket: "inventarios-app-5a576.appspot.com",
+      messagingSenderId: "1023987815156",
+      appId: "1:1023987815156:web:ce94c3205e76de244c84a1",
+      measurementId: "G-ZT83T39K70"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    window.db = getFirestore(app);
+    window.storage = getStorage(app);
+    window.auth = getAuth(app);
+    window.provider = new GoogleAuthProvider();
+    window.firebaseConfig = firebaseConfig;
+  </script>
+
+  <!-- Script principal -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
